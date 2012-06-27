@@ -1,0 +1,79 @@
+% template for random notes
+% Tinghui Zhou
+\documentclass[12pt]{article}
+\usepackage{parskip}
+
+\usepackage{amsmath,amssymb,graphicx,fullpage,subfigure,color}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+%roman font math operators
+\DeclareMathOperator\aut{Aut}
+
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\bbeta}{\boldsymbol{\beta}}
+\newcommand{\bw}{\mathbf{w}}
+
+% custom line spacing ----------------------------------------------------------
+\usepackage{setspace}
+%\onehalfspacing % one-and-a-half spacing
+%\doublespacing % double spacing
+%\setstretch{1.25} % custom line spacing
+
+% begin document %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+\title{Semi-Supervised Learning in the Imbalanced Visual World}
+\author{Tinghui Zhou, Joseph Lim}
+\date{}
+
+\maketitle
+
+\section{Model without $\bbeta$ regularization}
+\begin{equation}
+\min_{\bw,\bbeta}~\frac{1}{2}\|\bw\|^2 + C_l \sum_{i\in I_l} \ell(\bw, \bx_i, y_i) + C_{u+}\sum_{i\in I_u}\beta_i \ell(\bw, \bx_i, 1) + C_{u-}\sum_{i\in I_u}(1-\beta_i) \ell(\bw, \bx_i, -1), \label{model_wo_reg}
+\end{equation}
+where $\beta_i \in [0, 1]$ indicates how much the $i$-th example is borrowed as a positive ($\beta_i$ = 1 means borrowing as a full positive, and $\beta_i = 0$ means borrowing as a full negative). 
+
+We utilize an iterative update scheme to optimize Eq.~\ref{model_wo_reg}, i.e., after initializing $\bw$ using the labeled data, we iteratively update $\bw$ and $\bbeta$ by fixing the other as constant.
+
+\subsection{Stochastic Gradient Descent over $\bw$}
+Let $F$ denote the objective function given in Eq.~\ref{model_wo_reg}, and $\ell(\bw, \bx_i, s) = \max(0, 1 - s\bw\cdot\bx_i)$. The gradient over $\bw$ is thus given by:
+\begin{equation}
+\frac{\partial F}{\partial \bw} = \bw + C_l\sum_ig(\bw, \bx_i, y_i) + C_{u+}\sum_{i\in I_u}\beta_i g(\bw, \bx_i, 1) + C_{u-}\sum_{i\in I_u}(1-\beta_i) g(\bw, \bx_i, -1),
+\end{equation}
+where 
+$$
+g(\bw, \bx_i, s) =
+  \begin{cases}
+   0 & \text{if } s\bw\cdot\bx_i \geq 1  \\
+   -s\bx_i & \text{otherwise}
+  \end{cases}
+$$
+At each iteration, a randomly selected subset of examples is used for update: $\bw := \bw - \eta\frac{\partial F}{\partial \bw}$, where $\eta$ is the learning rate (needs to be adaptive?).
+
+\subsection{Optimizing over $\bbeta$}
+Since each $\beta_i$ is independent\footnote{Joseph: I think we should come up with a way to model the correlation among $\beta_i$'s.}, we can optimize over each $\beta_i$ separately. Consequently, we would like to minimize the following objective function ($\bw$ is fixed):
+$$
+F_1 = C_{u+}\beta_i \ell(\bw\cdot \bx_i, 1) + C_{u-}(1-\beta_i) \ell(\bw\cdot \bx_i, -1).
+$$
+Expanding the second term and getting rid of the term $C_{u-}\ell(\bw\cdot \bx_i, -1)$ that does not depend on $\beta_i$ gives the new objective function:
+$$
+F_2 = \beta_i[C_{u+} \ell(\bw\cdot \bx_i, 1) - C_{u-}\ell(\bw\cdot \bx_i, -1)].
+$$
+Thus, the optimal $\beta_i$ can be solved analytically by
+$$
+ \hat{\beta_i} =
+  \begin{cases}
+   0 & \text{if} C_{u+} \ell(\bw\cdot \bx_i, 1) - C_{u-}\ell(\bw\cdot \bx_i, -1) \geq 0 \\
+   1 & \text{otherwise}
+  \end{cases}
+$$
+
+\section{Model with $\bbeta$ regularization}
+\begin{equation}
+\min_{\bw,\bbeta}~\frac{1}{2}\|\bw\|^2 + C_l \sum_{i\in I_l} \ell(\bw\cdot \bx_i, \text{sign}(y_i)) + C_{u+}\sum_{i\in I_u}\beta_i \ell(\bw\cdot \bx_i, 1) + C_{u-}\sum_{i\in I_u}(1-\beta_i) \ell(\bw\cdot \bx_i, -1) + \lambda\| \bbeta\|_1
+\end{equation}
+The additional $\ell_1$ regularization over $\bbeta$ enforces a strong preference of borrowing the unlabeled data as negatives, which incorporates the prior that the vast majority of the visual world consists of negatives.
+
+\end{document}
